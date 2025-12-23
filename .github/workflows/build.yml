@@ -1,0 +1,52 @@
+name: Build TrixieOS ISO
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          git \
+          xorriso \
+          squashfs-tools \
+          syslinux-utils \
+          curl \
+          build-essential
+
+    - name: Install abuild
+      run: |
+        sudo mkdir -p /usr/share/abuild
+        curl -L https://raw.githubusercontent.com/alpinelinux/abuild/master/abuild.in | sudo tee /usr/bin/abuild
+        sudo chmod +x /usr/bin/abuild
+        curl -L https://raw.githubusercontent.com/alpinelinux/abuild/master/functions.sh | sudo tee /usr/share/abuild/functions.sh
+
+    - name: Clone Alpine aports
+      run: |
+        git clone https://gitlab.alpinelinux.org/alpine/aports.git
+
+    - name: Build Alpine ISO
+      run: |
+        cd aports/scripts
+        sudo ./mkimage.sh \
+          --tag v3.20 \
+          --arch x86_64 \
+          --profile standard \
+          --outdir /tmp/trixieos
+
+    - name: Rename ISO
+      run: |
+        mv /tmp/trixieos/*.iso TrixieOS.iso
+
+    - name: Upload ISO
+      uses: actions/upload-artifact@v4
+      with:
+        name: TrixieOS-ISO
+        path: TrixieOS.iso
