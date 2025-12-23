@@ -1,0 +1,59 @@
+name: Build TrixieOS ISO
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install tools
+      run: |
+        sudo apt update
+        sudo apt install -y git xorriso squashfs-tools syslinux-utils
+
+    - name: Clone Alpine aports
+      run: |
+        git clone https://gitlab.alpinelinux.org/alpine/aports.git
+
+    - name: Build Alpine ISO
+      run: |
+        cd aports/scripts
+        sudo ./mkimage.sh \
+          --tag v3.20 \
+          --arch x86_64 \
+          --profile standard \
+          --outdir /tmp/trixieos
+
+    - name: Extract ISO
+      run: |
+        mkdir iso
+        sudo mount -o loop /tmp/trixieos/*.iso iso
+        mkdir work
+        sudo cp -r iso/* work/
+        sudo umount iso
+
+    - name: Edit boot menu (TrixieOS branding)
+      run: |
+        sed -i '1i MENU TITLE TrixieOS\nMENU SEPARATOR\nMENU LABEL ProjectA tarafından yapıldı\nMENU SEPARATOR' \
+        work/boot/syslinux/syslinux.cfg
+
+    - name: Rebuild ISO
+      run: |
+        xorriso -as mkisofs \
+          -o TrixieOS.iso \
+          -b boot/syslinux/isolinux.bin \
+          -c boot/syslinux/boot.cat \
+          -no-emul-boot \
+          -boot-load-size 4 \
+          -boot-info-table \
+          work
+
+    - name: Upload ISO
+      uses: actions/upload-artifact@v4
+      with:
+        name: TrixieOS-ISO
+        path: TrixieOS.iso
